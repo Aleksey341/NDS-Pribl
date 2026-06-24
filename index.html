@@ -198,8 +198,8 @@ function parseNum(v){
 function formatMoneyInput(el){ const v=(el.value||'').trim(); if(v===''){ return; } el.value = toMoney(parseNum(v)); }
 function formatPercentInput(el){ el.value = String(parseNum(el.value)); }
 
-let sales=[{label:'Реализация 1', amount:0, vat:20}];
-let purchases=[{label:'Закупка 1', amount:0, vat:20}];
+let sales=[{label:'Реализация 1', amount:0, vat:22}];
+let purchases=[{label:'Закупка 1', amount:0, vat:22}];
 
 function saleRowTemplate(idx, label, amount, vat, outVat){
   const id="sale-"+idx;
@@ -373,8 +373,8 @@ detailsBtn.addEventListener('click', ()=>{
 document.getElementById('addSale').addEventListener('click', ()=>addRow('sales'));
 document.getElementById('addPurchase').addEventListener('click', ()=>addRow('purchases'));
 document.getElementById('reset').addEventListener('click', ()=>{
-  sales=[{label:'Реализация 1', amount:0, vat:22}];
-  purchases=[{label:'Закупка 1', amount:0, vat:22}];
+  sales=[{label:'Реализация 1', amount:0, vat:20}];
+  purchases=[{label:'Закупка 1', amount:0, vat:20}];
   document.getElementById('profitTax').value='25';
   renderTables();
 });
