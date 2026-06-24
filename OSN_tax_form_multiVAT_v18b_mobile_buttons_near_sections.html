@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Калькулятор ОСН — несколько ставок НДС (v18)</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --card:#fff; --text:#111827; --muted:#6b7280;
+    --accent:#2563eb; --accent-2:#1d4ed8; --border:#e5e7eb;
+    --shadow:0 8px 24px rgba(0,0,0,.06);
+    --pink-bg:#ffe4ef; --pink-border:#ff97bf;
+    --green-bg:#dcfce7; --green-border:#16a34a;
+    --red-bg:#fee2e2; --red-border:#ef4444;
+    --sticky-bg: rgba(255,255,255,.92);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;background:var(--bg);color:var(--text);
+       font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial}
+  .container{max-width:1100px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;
+        box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+  h1{font-size:22px;margin:0 0 12px}
+  h2{font-size:18px;margin:0 0 12px}
+  .table-responsive{width:100%;overflow-x:auto}
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  th,td{padding:10px;border-bottom:1px solid var(--border);vertical-align:middle}
+  th{text-align:left;font-weight:600;background:#fbfdff}
+  .ro{display:block;width:100%;padding:10px 12px;border:1px solid var(--border);
+      border-radius:12px;background:#f9fafb}
+  input[type="text"]{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;
+      outline:none;background:#fff;transition:border .15s, box-shadow .15s}
+  input[type="text"]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(2,1fr)}
+  @media(max-width:800px){.grid{grid-template-columns:1fr}}
+  .actions{display:flex;gap:12px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;
+       border-radius:12px;border:1px solid var(--border);cursor:pointer;font-weight:600;
+       transition:background .15s, border-color .15s, box-shadow .15s, transform .02s;user-select:none;background:#f3f4f6;white-space:nowrap}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn-primary:hover{background:var(--accent-2);border-color:var(--accent-2)}
+  .btn-secondary{background:#f3f4f6;color:#111827;border-color:#d1d5db}
+  .btn-secondary:hover{background:#e5e7eb}
+  .btn-danger{background:#fee2e2;color:#991b1b;border-color:#fecaca}
+  .btn-danger:hover{background:#fecaca}
+
+  .kpi{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi .item{background:#f9fafb;border:2px solid var(--border);border-radius:14px;padding:12px 14px}
+  .kpi .label{font-size:13px;color:var(--muted)}
+  .kpi .value{font-size:20px;font-weight:600}
+  .kpi .value.strong{font-weight:800}
+  .pill-pink{background:var(--pink-bg) !important; border-color:var(--pink-border) !important;}
+  .pill-green{background:var(--green-bg) !important; border-color:var(--green-border) !important;}
+  .pill-red{background:var(--red-bg) !important; border-color:var(--red-border) !important;}
+
+  .sticky{position:sticky;top:0;z-index:30;background:var(--sticky-bg);backdrop-filter:saturate(180%) blur(6px);
+          border:1px solid var(--border);box-shadow:var(--shadow)}
+  .summary-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .summary-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .summary{display:grid;gap:12px;grid-template-columns:repeat(3,1fr)}
+  .summary .item{border-radius:16px;border:2px solid var(--border);padding:14px 16px;background:#f9fafb}
+  .summary .label{font-size:13px;color:var(--muted)}
+  .summary .value{font-size:24px;font-weight:800}
+  .toggle-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:#1d4ed8;text-decoration:underline}
+
+  /* mini summary mode (one line) */
+  .sticky.mini .summary{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+  .sticky.mini .summary .item{padding:8px 10px;border-radius:12px;white-space:nowrap;min-width:fit-content}
+  .sticky.mini .summary .label{font-size:12px}
+  .sticky.mini .summary .value{font-size:16px}
+  .sticky.mini .summary-head h2{font-size:16px;margin:0}
+  .sticky.mini{padding:10px}
+
+  
+  /* --- Mobile normal-mode overflow fixes --- */
+  @media(max-width:560px){
+    .sticky{left:0; right:0; width:100%; overflow-x:hidden}
+    .summary{grid-template-columns:1fr}
+    .summary .item{min-width:0}
+    .summary .value{word-break:break-word}
+  }
+
+  /* compact on focus (stacked) */
+  @media(max-width:560px){
+    .sticky.compact{padding:8px 10px}
+    .sticky.compact .summary-head h2{font-size:16px;margin:0}
+    .sticky.compact .summary{grid-template-columns:1fr; gap:6px}
+    .sticky.compact .summary .item{padding:8px 10px;border-radius:12px}
+    .sticky.compact .summary .label{font-size:12px}
+    .sticky.compact .summary .value{font-size:16px}
+  }
+
+  /* Mobile stacked rows */
+  @media(max-width:560px){
+    .table-responsive{overflow-x:visible}
+    table, thead, tbody, th, td, tr{display:block}
+    thead{display:none}
+    tbody tr{border:1px solid var(--border); border-radius:14px; padding:10px; margin-bottom:12px; background:#fff}
+    tbody td{border-bottom:0; padding:8px 6px; display:flex; flex-direction:column; align-items:stretch}
+    tbody td::before{content: attr(data-label); color:var(--muted); font-size:13px; margin-bottom:6px}
+    tbody td > *{flex:1}
+    tbody td .btn{width:100%}
+    .ro{padding:12px 14px;font-size:16px}
+    input[type="text"]{padding:12px 14px; font-size:18px}
+    tfoot tr{display:flex; gap:10px; border-top:1px dashed var(--border); padding-top:10px}
+    tfoot th{display:block; flex:1; background:transparent; padding:6px 4px}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <h1>Калькулятор ОСН — несколько ставок НДС (v18)</h1>
+  </div>
+
+  <div id="summaryCard" class="card sticky">
+    <div class="summary-head">
+      <h2>Итоги (сводка)</h2>
+      <div class="summary-actions">
+        <span class="toggle-link" id="toggleCompact">Свернуть/Развернуть</span>
+        <span class="toggle-link" id="toggleMini">Мини‑режим</span>
+      </div>
+    </div>
+    <div class="summary">
+      <div class="item" id="sumVatPayableBox"><div class="label">НДС к уплате (+) / к возмещению (−), ₽</div><div class="value" id="sumVatPayable">0</div></div>
+      <div class="item" id="sumProfitTaxBox"><div class="label">Налог на прибыль, ₽</div><div class="value" id="sumProfitTax">0</div></div>
+      <div class="item" id="sumNetProfitBox"><div class="label">Чистая прибыль, ₽</div><div class="value" id="sumNetProfit">0</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <h2>Ставка налога на прибыль</h2>
+        <input id="profitTax" type="text" value="25" inputmode="decimal" pattern="[0-9,.]*" enterkeyhint="done"/>
+        <div style="color:#6b7280;font-size:14px">%</div>
+      </div>
+      <div>
+        <h2>Действия</h2>
+        <div class="actions">
+          <button id="reset" class="btn btn-secondary" type="button">↺ Сброс</button>
+          <button id="addSale" class="btn btn-primary" type="button">＋ + строка реализации</button>
+          <button id="addPurchase" class="btn btn-primary" type="button">＋ + строка закупки</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Реализация (с НДС)</h2>
+    <div class="table-responsive">
+      <table id="salesTable">
+        <thead><tr><th>Строка</th><th>Сумма, ₽ (с НДС)</th><th>Ставка НДС, %</th><th>Исходящий НДС, ₽</th><th>Удалить</th></tr></thead>
+        <tbody></tbody>
+        <tfoot><tr><th>ИТОГО</th><th id="salesSum">0</th><th></th><th id="salesVatTotal">0</th><th></th></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Закупки (с НДС)</h2>
+    <div class="table-responsive">
+      <table id="purchasesTable">
+        <thead><tr><th>Строка</th><th>Сумма, ₽ (с НДС)</th><th>Ставка НДС, %</th><th>Входящий НДС, ₽</th><th>Удалить</th></tr></thead>
+        <tbody></tbody>
+        <tfoot><tr><th>ИТОГО</th><th id="purchSum">0</th><th></th><th id="purchVatTotal">0</th><th></th></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <h2 style="margin:0">Результаты расчёта</h2>
+      <button id="toggleDetails" class="btn btn-secondary" type="button">Скрыть детали</button>
+    </div>
+    <div class="kpi" id="detailsGrid">
+      <div class="item"><div class="label">Выручка без НДС, ₽</div><div class="value" id="revNoVat">0</div></div>
+      <div class="item"><div class="label">Закупка без НДС, ₽</div><div class="value" id="cogsNoVat">0</div></div>
+      <div class="item"><div class="label">Исходящий НДС, ₽</div><div class="value" id="vatOut">0</div></div>
+      <div class="item"><div class="label">Входящий НДС, ₽</div><div class="value" id="vatIn">0</div></div>
+      <div class="item"><div class="label">Прибыль до налога, ₽</div><div class="value" id="profitBT">0</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function unspace(s){return s.replace(/\\s+/g,'').replace(/\\u00A0|\\u202F/g,'')}
+function toMoney(v){return (isFinite(v)? v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}):'0,00')}
+function parseNum(v){
+  if(v===undefined||v===null) return 0;
+  if(typeof v==='number') return isFinite(v)?v:0;
+  const s=String(v).replace(',', '.'); 
+  const clean = unspace(s);
+  const n = parseFloat(clean);
+  return isFinite(n)? n: 0;
+}
+function formatMoneyInput(el){ const v=(el.value||'').trim(); if(v===''){ return; } el.value = toMoney(parseNum(v)); }
+function formatPercentInput(el){ el.value = String(parseNum(el.value)); }
+
+let sales=[{label:'Реализация 1', amount:0, vat:20}];
+let purchases=[{label:'Закупка 1', amount:0, vat:20}];
+
+function saleRowTemplate(idx, label, amount, vat, outVat){
+  const id="sale-"+idx;
+  return `
+    <tr data-id="${id}">
+      <td data-label="Строка"><input type="text" value="${label}" data-field="label" enterkeyhint="next"/></td>
+      <td data-label="Сумма, ₽ (с НДС)"><input type="text" value="${amount==0?'':toMoney(amount)}" data-field="amount" inputmode="decimal" pattern="[0-9,.]*" enterkeyhint="next"/></td>
+      <td data-label="Ставка НДС, %"><input type="text" value="${vat}" data-field="vat" inputmode="decimal" pattern="[0-9,.]*" enterkeyhint="next"/></td>
+      <td data-label="Исходящий НДС, ₽"><span class="ro" data-field="outvat">${toMoney(outVat)}</span></td>
+      <td data-label="Удалить"><button type="button" data-action="del" class="btn btn-danger">Удалить</button></td>
+    </tr>`;
+}
+function purchRowTemplate(idx, label, amount, vat, inVat){
+  const id="purch-"+idx;
+  return `
+    <tr data-id="${id}">
+      <td data-label="Строка"><input type="text" value="${label}" data-field="label" enterkeyhint="next"/></td>
+      <td data-label="Сумма, ₽ (с НДС)"><input type="text" value="${amount==0?'':toMoney(amount)}" data-field="amount" inputmode="decimal" pattern="[0-9,.]*" enterkeyhint="next"/></td>
+      <td data-label="Ставка НДС, %"><input type="text" value="${vat}" data-field="vat" inputmode="decimal" pattern="[0-9,.]*" enterkeyhint="next"/></td>
+      <td data-label="Входящий НДС, ₽"><span class="ro" data-field="invat">${toMoney(inVat)}</span></td>
+      <td data-label="Удалить"><button type="button" data-action="del" class="btn btn-danger">Удалить</button></td>
+    </tr>`;
+}
+
+function renderTables(){
+  const sbody=document.querySelector('#salesTable tbody');
+  const pbody=document.querySelector('#purchasesTable tbody');
+  const sOutVals = sales.map(r => {
+    const amt=parseNum(r.amount), rate=parseNum(r.vat);
+    return amt>0 && rate>=0 ? amt - (amt/(1+rate/100)) : 0;
+  });
+  const pInVals = purchases.map(r => {
+    const amt=parseNum(r.amount), rate=parseNum(r.vat);
+    return amt>0 && rate>=0 ? amt - (amt/(1+rate/100)) : 0;
+  });
+  sbody.innerHTML = sales.map((r,i)=>saleRowTemplate(i,r.label,r.amount,r.vat,sOutVals[i])).join('');
+  pbody.innerHTML = purchases.map((r,i)=>purchRowTemplate(i,r.label,r.amount,r.vat,pInVals[i])).join('');
+  bindTableEvents();
+  recalc();
+}
+function bindTableEvents(){
+  document.querySelectorAll('#salesTable tbody tr, #purchasesTable tbody tr').forEach(tr=>{
+    tr.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('input', onChange);
+      if(inp.dataset.field==='amount') inp.addEventListener('blur', e=>formatMoneyInput(e.target));
+      if(inp.dataset.field==='vat') inp.addEventListener('blur', e=>formatPercentInput(e.target));
+      inp.addEventListener('focus', ()=> setSummaryCompact(true));
+    });
+    tr.querySelector('button[data-action="del"]').addEventListener('click', onDeleteRow);
+  });
+}
+function onChange(e){
+  const tr=e.target.closest('tr');
+  const section=tr.dataset.id.startsWith('sale')?'sales':'purchases';
+  const idx=parseInt(tr.dataset.id.split('-')[1],10);
+  const field=e.target.dataset.field;
+  let val=e.target.value;
+  if(field!=='label') val=parseNum(val);
+  (section==='sales'?sales:purchases)[idx][field] = (field==='label')? val : (isFinite(val)?val:0);
+
+  if(section==='sales'){
+    const amt=parseNum(sales[idx].amount), rate=parseNum(sales[idx].vat);
+    const outVAT = amt>0 && rate>=0 ? amt - (amt/(1+rate/100)) : 0;
+    tr.querySelector('[data-field="outvat"]').textContent = toMoney(outVAT);
+  }else{
+    const amt=parseNum(purchases[idx].amount), rate=parseNum(purchases[idx].vat);
+    const inVAT = amt>0 && rate>=0 ? amt - (amt/(1+rate/100)) : 0;
+    tr.querySelector('[data-field="invat"]').textContent = toMoney(inVAT);
+  }
+  recalc();
+}
+function onDeleteRow(e){
+  const tr=e.target.closest('tr');
+  const section=tr.dataset.id.startsWith('sale')?'sales':'purchases';
+  const idx=parseInt(tr.dataset.id.split('-')[1],10);
+  if(section==='sales') sales.splice(idx,1); else purchases.splice(idx,1);
+  renderTables();
+}
+function addRow(section){
+  const arr=(section==='sales')?sales:purchases;
+  const next = arr.length+1;
+  arr.push({label:(section==='sales'?'Реализация ':'Закупка ')+next, amount:0, vat:20});
+  renderTables();
+}
+
+function recalc(){
+  const pTax=parseNum(document.getElementById('profitTax').value || 0);
+  const sAmt=sales.map(r=>parseNum(r.amount));
+  const sVat=sales.map(r=>parseNum(r.vat));
+  const sNoVat=sAmt.map((amt,i)=> amt>0 && sVat[i]>=0 ? amt/(1+sVat[i]/100):0);
+  const sOut=sAmt.map((amt,i)=> amt - sNoVat[i]);
+
+  const pAmt=purchases.map(r=>parseNum(r.amount));
+  const pVat=purchases.map(r=>parseNum(r.vat));
+  const pNoVat=pAmt.map((amt,i)=> amt>0 && pVat[i]>=0 ? amt/(1+pVat[i]/100):0);
+  const pIn=pAmt.map((amt,i)=> amt - pNoVat[i]);
+
+  const sum = a=>a.reduce((s,x)=>s+(isFinite(x)?x:0),0);
+  const salesAmtTot=sum(sAmt), salesNoVatTot=sum(sNoVat), outVATTot=sum(sOut);
+  const purchAmtTot=sum(pAmt), purchNoVatTot=sum(pNoVat), inVATTot=sum(pIn);
+
+  const vatPay=outVATTot - inVATTot;
+  const profitBT=salesNoVatTot - purchNoVatTot;
+  const profitTaxAmt=Math.max(0, profitBT*(pTax/100));
+  const profitNT=profitBT - profitTaxAmt;
+
+  document.getElementById('salesSum').textContent=toMoney(salesAmtTot);
+  document.getElementById('purchSum').textContent=toMoney(purchAmtTot);
+  document.getElementById('salesVatTotal').textContent=toMoney(outVATTot);
+  document.getElementById('purchVatTotal').textContent=toMoney(inVATTot);
+
+  document.getElementById('revNoVat').textContent=toMoney(salesNoVatTot);
+  document.getElementById('cogsNoVat').textContent=toMoney(purchNoVatTot);
+  document.getElementById('vatOut').textContent=toMoney(outVATTot);
+  document.getElementById('vatIn').textContent=toMoney(inVATTot);
+  document.getElementById('profitBT').textContent=toMoney(profitBT);
+
+  // Summary tiles
+  document.getElementById('sumVatPayable').textContent = toMoney(vatPay);
+  document.getElementById('sumProfitTax').textContent = toMoney(profitTaxAmt);
+  document.getElementById('sumNetProfit').textContent = toMoney(profitNT);
+
+  // Coloring for SUMMARY ONLY
+  const vp=document.getElementById('sumVatPayableBox');
+  vp.classList.toggle('pill-red', vatPay>0);
+  vp.classList.toggle('pill-green', vatPay<0);
+  if(vatPay===0){vp.classList.remove('pill-red','pill-green');}
+
+  const pt=document.getElementById('sumProfitTaxBox');
+  pt.classList.toggle('pill-pink', profitTaxAmt>0);
+  if(profitTaxAmt<=0) pt.classList.remove('pill-pink');
+
+  const np=document.getElementById('sumNetProfitBox');
+  np.classList.toggle('pill-green', profitNT>0.000001);
+  np.classList.toggle('pill-red',   profitNT<-0.000001);
+  if(Math.abs(profitNT)<=0.000001){ np.classList.remove('pill-green','pill-red'); }
+}
+
+// Sticky summary compact + mini
+const summaryCard=document.getElementById('summaryCard');
+let compactForced=false;
+let miniForced=false;
+function setSummaryCompact(on){ if(window.matchMedia('(max-width:560px)').matches){ summaryCard.classList.toggle('compact', !!on); } }
+function setSummaryMini(on){ summaryCard.classList.toggle('mini', !!on); }
+
+document.getElementById('toggleCompact').addEventListener('click', ()=>{
+  compactForced=!compactForced; setSummaryCompact(compactForced);
+});
+document.getElementById('toggleMini').addEventListener('click', (e)=>{
+  miniForced=!miniForced; setSummaryMini(miniForced);
+  e.target.textContent = miniForced ? 'Обычный режим' : 'Мини‑режим';
+});
+
+document.addEventListener('focusin', (e)=>{ if(e.target.tagName==='INPUT') setSummaryCompact(true); });
+document.addEventListener('focusout', (e)=>{
+  if(!compactForced){
+    setTimeout(()=>{ if(!document.activeElement || document.activeElement.tagName!=='INPUT') setSummaryCompact(false); },150);
+  }
+});
+
+// Toggle details
+const detailsBtn=document.getElementById('toggleDetails');
+const detailsGrid=document.getElementById('detailsGrid');
+detailsBtn.addEventListener('click', ()=>{
+  const hidden = detailsGrid.style.display==='none';
+  detailsGrid.style.display = hidden ? '' : 'none';
+  detailsBtn.textContent = hidden ? 'Скрыть детали' : 'Показать детали';
+});
+
+// Controls
+document.getElementById('addSale').addEventListener('click', ()=>addRow('sales'));
+document.getElementById('addPurchase').addEventListener('click', ()=>addRow('purchases'));
+document.getElementById('reset').addEventListener('click', ()=>{
+  sales=[{label:'Реализация 1', amount:0, vat:20}];
+  purchases=[{label:'Закупка 1', amount:0, vat:20}];
+  document.getElementById('profitTax').value='25';
+  renderTables();
+});
+document.getElementById('profitTax').addEventListener('input', ()=>recalc());
+document.getElementById('profitTax').addEventListener('blur', (e)=>{ formatPercentInput(e.target); recalc(); });
+
+// Init
+renderTables();
+</script>
+</body>
+</html>
+
+
+<style>
+/* ===== COMPACT mobile mode (≤560px) — strong compression overrides ===== */
+@media (max-width:560px){
+  body{ padding:8px; }
+  .container{ padding:0; }
+  .card{ padding:12px; margin-bottom:10px; border-radius:12px; }
+  h1{ font-size:18px; margin:0 0 6px; }
+  h2{ font-size:16px; margin:0 0 6px; }
+
+  .sticky{ padding:8px 8px; }
+  .summary-head{ gap:8px; margin-bottom:6px; }
+  .summary-actions{ gap:6px; }
+
+  .summary{ gap:8px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .summary .item{ padding:8px 10px; border-radius:12px; }
+  .summary .label{ font-size:11px; }
+  .summary .value{ font-size:16px; font-weight:800; }
+
+  .kpi{ gap:8px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .kpi .item{ padding:8px 10px; border-radius:12px; }
+  .kpi .label{ font-size:11px; }
+  .kpi .value{ font-size:16px; }
+
+  .grid{ gap:8px; }
+  .actions{ gap:8px; }
+  .btn{ padding:8px 10px; border-radius:10px; font-size:14px; }
+
+  input[type="text"], .ro{
+    padding:6px 8px;
+    font-size:15px;
+    border-radius:10px;
+  }
+
+  label{ font-size:12px; }
+
+  /* Табличные карточки */
+  tbody tr{ padding:8px; margin-bottom:8px; border-radius:10px; }
+  tbody td{ padding:6px 4px; }
+  tbody td::before{ font-size:11px; margin-bottom:4px; }
+
+  /* Итоги таблицы */
+  tfoot tr{ gap:6px; padding-top:6px; }
+  tfoot th{ padding:4px 2px; }
+
+  .field-row{ gap:8px; }
+}
+</style>
+
+<style>
+/* Hide the first text "Строка" field in Sales/Purchases on phones */
+@media (max-width:560px){
+  #salesTable td[data-label="Строка"],
+  #purchasesTable td[data-label="Строка"]{
+    display:none !important;
+  }
+}
+</style>
+
+<style>
+/* Short labels for blue buttons on phones & tablets */
+@media (max-width:1024px){
+  #addSale, #addPurchase{ font-size:0 !important; letter-spacing:0; }
+  #addSale::after, #addPurchase::after{
+    font-size:14px; font-weight:700; content:"";
+    display:inline-block; line-height:1; vertical-align:middle;
+  }
+  #addSale::after{ content:"+ реализация"; }
+  #addPurchase::after{ content:"+ закупка"; }
+}
+</style>
+
+<style>
+/* Place action buttons near their sections on phones & tablets */
+@media (max-width:1024px){
+  .mobile-actions{ display:flex; gap:8px; margin:8px 0 6px; flex-wrap:wrap; }
+  .card h2 + .mobile-actions .btn{ padding:8px 10px; border-radius:10px; }
+}
+@media (min-width:1025px){
+  .mobile-actions{ display:none !important; }
+}
+</style>
+
+<script>
+(function(){
+  function byId(id){ return document.getElementById(id); }
+  function ensureHolder(card){
+    if(!card) return null;
+    var h2 = card.querySelector('h2');
+    if(!h2) return null;
+    var holder = card.querySelector('.mobile-actions');
+    if(!holder){
+      holder = document.createElement('div');
+      holder.className = 'mobile-actions';
+      h2.insertAdjacentElement('afterend', holder);
+    }
+    return holder;
+  }
+
+  var mq = window.matchMedia('(max-width:1024px)');
+  var actionsBar, addSale, addPurchase, salePh, purchPh;
+
+  function init(){
+    actionsBar  = document.querySelector('.actions');
+    addSale     = byId('addSale');
+    addPurchase = byId('addPurchase');
+    if(!addSale || !addPurchase || !actionsBar) return;
+
+    // placeholders to keep original positions
+    salePh  = document.createElement('span'); salePh.id  = 'ph-addSale';
+    purchPh = document.createElement('span'); purchPh.id = 'ph-addPurchase';
+    addSale.after(salePh);
+    addPurchase.after(purchPh);
+
+    update();
+    if(mq.addEventListener){ mq.addEventListener('change', update); } else { mq.addListener(update); }
+  }
+
+  function update(){
+    if(!addSale || !addPurchase) return;
+    if(mq.matches){
+      var salesCard = document.getElementById('salesTable');
+      var purchCard = document.getElementById('purchasesTable');
+      if(salesCard){
+        var card = salesCard.closest('.card');
+        var holder = ensureHolder(card);
+        if(holder && addSale.parentNode !== holder){ holder.appendChild(addSale); }
+      }
+      if(purchCard){
+        var card = purchCard.closest('.card');
+        var holder = ensureHolder(card);
+        if(holder && addPurchase.parentNode !== holder){ holder.appendChild(addPurchase); }
+      }
+    }else{
+      // restore to original positions before placeholders
+      if(salePh && salePh.parentNode && addSale.parentNode !== salePh.parentNode){ salePh.before(addSale); }
+      if(purchPh && purchPh.parentNode && addPurchase.parentNode !== purchPh.parentNode){ purchPh.before(addPurchase); }
+    }
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  }else{
+    init();
+  }
+})();
+</script>
