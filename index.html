@@ -373,8 +373,8 @@ detailsBtn.addEventListener('click', ()=>{
 document.getElementById('addSale').addEventListener('click', ()=>addRow('sales'));
 document.getElementById('addPurchase').addEventListener('click', ()=>addRow('purchases'));
 document.getElementById('reset').addEventListener('click', ()=>{
-  sales=[{label:'Реализация 1', amount:0, vat:20}];
-  purchases=[{label:'Закупка 1', amount:0, vat:20}];
+  sales=[{label:'Реализация 1', amount:0, vat:22}];
+  purchases=[{label:'Закупка 1', amount:0, vat:22}];
   document.getElementById('profitTax').value='25';
   renderTables();
 });
